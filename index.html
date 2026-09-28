@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ABYSSOS – Notprotokoll</title>
+<style>
+:root{
+  --bg:#03121a; --bg2:#06202c; --panel:#0a2b3a; --panel2:#0d3546;
+  --line:#16536b; --txt:#dff3fb; --dim:#8fc0d4;
+  --cy:#31e0d8; --cy2:#17b6c9; --warn:#ffb648; --bad:#ff6b6b; --ok:#5ce08a;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:17px;line-height:1.5;-webkit-text-size-adjust:100%}
+body{background:radial-gradient(120% 80% at 50% 0%,#0a3040 0%,#03121a 60%);min-height:100vh}
+#app{max-width:880px;margin:0 auto;padding:12px 16px 60px}
+h1,h2,h3{margin:0 0 .4em;line-height:1.2}
+h1{font-size:1.8rem;letter-spacing:.08em}
+h2{font-size:1.25rem;color:var(--cy)}
+p{margin:.5em 0}
+.mono{font-family:var(--mono)}
+.dim{color:var(--dim)}
+.center{text-align:center}
+
+/* HUD */
+#hud{position:sticky;top:0;z-index:20;
+  background:rgba(3,18,26,.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:8px 16px}
+#hudIn{display:flex;gap:10px;align-items:center;max-width:880px;margin:0 auto}
+#hud .cell{font-family:var(--mono);font-size:.82rem;color:var(--dim);white-space:nowrap}
+#hud .val{color:var(--cy);font-size:1.05rem}
+#hud .val.low{color:var(--bad)}
+#hud .spacer{flex:1}
+.dots{display:flex;gap:5px}
+.dot{width:11px;height:11px;border-radius:50%;border:1px solid var(--line);background:#062130}
+.dot.on{background:var(--cy);border-color:var(--cy);box-shadow:0 0 8px var(--cy2)}
+
+.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));
+  border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;overflow:hidden}
+.hero{height:150px;margin:-16px -16px 14px;background-size:cover;background-position:center;
+  position:relative;border-bottom:1px solid var(--line)}
+.hero::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(4,22,31,.30) 0%,rgba(9,40,54,.80) 65%,var(--panel) 100%)}
+.hero.gross{height:230px}
+@media (max-width:520px){ .hero{height:108px} .hero.gross{height:150px} }
+@media print{ .hero{display:none} }
+.panel.quiet{background:#072430}
+.tag{display:inline-block;font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;
+  text-transform:uppercase;color:#04222c;background:var(--cy);padding:3px 9px;border-radius:99px}
+.tag.ghost{background:none;color:var(--dim);border:1px solid var(--line)}
+.story{border-left:3px solid var(--cy2);padding-left:12px;color:#bfe6f2;font-style:italic}
+
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{display:inline-block;background:var(--cy);color:#03202a;border:none;border-radius:10px;
+  padding:13px 20px;font-weight:700;min-height:48px;letter-spacing:.02em}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:none;color:var(--cy);border:1px solid var(--line)}
+.btn.small{padding:9px 14px;min-height:40px;font-size:.9rem}
+.btn[disabled]{opacity:.4}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row.end{justify-content:flex-end}
+
+/* Aufgaben */
+.q{background:#062532;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0}
+.q .num{font-family:var(--mono);color:var(--cy2);font-size:.8rem}
+.chip{display:inline-block;background:#0b3446;border:1px solid var(--line);border-radius:9px;
+  padding:9px 14px;margin:4px 5px 0 0;min-height:42px;font-family:var(--mono)}
+.chip.sel{background:var(--cy);color:#03202a;border-color:var(--cy);font-weight:700}
+.chip.small{padding:6px 10px;min-height:0;font-size:.85rem}
+.word{display:inline-block;padding:3px 4px;border-radius:6px;border:1px dashed transparent;margin:1px 0}
+.word.click{cursor:pointer;border-color:#14485c}
+.word.sel{background:var(--warn);color:#241500;font-weight:700;border-color:var(--warn)}
+.gap{display:inline-block;width:16px;height:22px;vertical-align:-4px;border-radius:4px;
+  border:1px dashed #1b607a;margin:0 1px;cursor:pointer;text-align:center;line-height:20px}
+.gap.on{background:var(--warn);border-color:var(--warn);color:#241500;font-weight:900}
+.slot{display:inline-block;min-width:110px;padding:2px 10px;border-bottom:2px solid var(--cy2);
+  text-align:center;font-weight:700;color:var(--cy)}
+.slot.empty{color:#2d7d92}
+.pair{display:flex;gap:8px;align-items:center;margin:6px 0;font-size:.92rem}
+.pair .x{color:var(--bad);cursor:pointer;padding:0 6px}
+.card{background:#0b3446;border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;cursor:pointer}
+.card.used{opacity:.35}
+.kz{font-family:var(--mono);color:var(--cy);font-weight:700}
+.msg{margin:10px 0;padding:11px 13px;border-radius:10px;font-size:.95rem}
+.msg.bad{background:#3a1420;border:1px solid #6b2233;color:#ffc9cf}
+.msg.ok{background:#0d3a28;border:1px solid #1d6b48;color:#c6f5db}
+.msg.info{background:#08303f;border:1px solid var(--line);color:#cfe9f4}
+.shake{animation:sh .35s}
+@keyframes sh{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.fade{animation:fd .35s ease-out}
+@keyframes fd{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+hr{border:none;border-top:1px solid var(--line);margin:18px 0}
+ul{padding-left:20px}li{margin:.25em 0}
+input[type=text]{background:#062532;border:1px solid var(--line);border-radius:10px;
+  color:var(--txt);padding:12px;font-size:1.05rem;width:100%;max-width:320px;font-family:var(--mono)}
+table{border-collapse:collapse;width:100%;font-size:.9rem;margin:8px 0}
+td,th{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.lehrer{background:#0b1f12}
+@media print{body{background:#fff;color:#000}.panel{border:1px solid #999;background:#fff}#hud{display:none}}
+</style>
+</head>
+<body>
+<div id="hud" style="display:none"><div id="hudIn">
+  <div class="cell">RESERVE<br><span class="val" id="hTime">--:--</span></div>
+  <div class="cell">CHIPS<br><span class="val" id="hChips">0</span></div>
+  <div class="spacer"></div>
+  <div class="dots" id="hDots"></div>
+  <button class="btn ghost small" id="hReset" title="Spiel abbrechen">Abbruch</button>
+</div></div>
+<div id="app"></div>
+
+<script>
+"use strict";
+/* ============================ INHALTE ============================ */
+
+const MODULES = [
+{
+  id:"schleuse", bild:"schleuse", nr:1, name:"SCHLEUSENFILTER", kz:4,
+  rolle:"Lektorat liest jeden Funkspruch laut vor, bevor Steuerung tippt.",
+  story:"Die Schleuse öffnet nur auf einen Funkspruch, den der Sprachfilter fehlerfrei versteht. Sechs Meldungen liegen im Puffer. Ein falsches Wort – und das Ventil bleibt zu.",
+  auftrag:"Wählt für jede Lücke die richtige Form.",
+  type:"choice",
+  data:{ lines:[
+    {pre:"Wir melden,", post:"die Schleuse blockiert ist.", correct:"dass"},
+    {pre:"Das Ventil,", post:"ihr sucht, liegt hinter Luke 3.", correct:"das"},
+    {pre:"Prüft, ob", post:"Notlicht noch brennt.", correct:"das"},
+    {pre:"Es ist wichtig,", post:"niemand allein taucht.", correct:"dass"},
+    {pre:"Das Kabel,", post:"aus der Decke hängt, führt Strom.", correct:"das"},
+    {pre:"Wir hoffen,", post:"die Oberfläche uns hört.", correct:"dass"}
+  ], options:["das","dass"]},
+  tipps:[
+    "Ersetzt das Wort testweise durch <b>dieses</b>, <b>jenes</b> oder <b>welches</b>. Klappt der Satz noch, schreibt man <b>das</b>.",
+    "Nach Verben des Sagens, Denkens, Hoffens und nach „Es ist wichtig …“ folgt ein Nebensatz mit <b>dass</b>. Drei Meldungen brauchen „dass“, drei „das“."
+  ],
+  bonus:{ frage:"„Alles, ___ ihr für den Aufstieg braucht, liegt in Kammer 2.“",
+    optionen:["das","dass","beides möglich"], correct:0,
+    erklaerung:"Nach „alles“ steht ein Relativsatz – Probe: „alles, welches ihr braucht“. Also <b>das</b>."}
+},
+{
+  id:"archiv", bild:"archiv", nr:2, name:"ARCHIVSPEICHER", kz:7,
+  rolle:"Funk liest das Logbuch laut vor – gesprochen hört man die Nomen besser.",
+  story:"Im Archivspeicher liegt der letzte Logbucheintrag der Stammbesatzung. Der Speicher gibt ihn erst frei, wenn die beschädigten Wörter markiert sind.",
+  auftrag:"Genau <b>fünf</b> Wörter sind falsch geschrieben. Tippt sie an.",
+  type:"find",
+  data:{
+    tokens:["Logbuch,","Tag","41.","Gestern","Abend","gab","es","etwas","merkwürdiges","im","Ostschacht.",
+      "Beim","öffnen","der","Luke","hörten","wir","ein","leises","klopfen.",
+      "Der","Techniker","sagt,","das","sei","Nichts","Besonderes.",
+      "Wir","sollten","das","Beste","hoffen","und","auf","alles","weitere","vorbereitet","sein."],
+    errors:[8,12,19,25,35]
+  },
+  tipps:[
+    "Steht ein Artikel (das), eine Präposition (beim, im) oder ein Wort wie <b>etwas / nichts / alles</b> davor, wird das folgende Wort meist zum Nomen – und großgeschrieben.",
+    "Vier Wörter müssten <b>groß</b>geschrieben werden, eines <b>klein</b>."
+  ],
+  bonus:{ frage:"Welche Schreibung ist korrekt?",
+    optionen:["Wir haben im dunkeln gewartet.","Wir haben im Dunkeln gewartet.","Beide sind erlaubt."],
+    correct:1, erklaerung:"„im Dunkeln“ – nach der Präposition <i>im</i> steht ein Nomen."}
+},
+{
+  id:"druck", bild:"druck", nr:3, name:"DRUCKAUSGLEICH", kz:2,
+  rolle:"Zeitwache liest jeden Satz mit einer kurzen Pause – die Pause sitzt oft dort, wo das Komma hingehört.",
+  story:"Die Druckregelung arbeitet die Befehle Satz für Satz ab. Fehlt eine Grenze zwischen Haupt- und Nebensatz, liest das System weiter und öffnet das falsche Ventil.",
+  auftrag:"Tippt die Stellen an, an denen ein Komma stehen muss. Insgesamt sind es <b>fünf</b>.",
+  type:"commas",
+  data:{ sentences:[
+    {words:["Wir","öffnen","das","Ventil","wenn","der","Druck","gefallen","ist."], gaps:[3]},
+    {words:["Obwohl","die","Anzeige","rot","leuchtet","bleibt","die","Kammer","dicht."], gaps:[4]},
+    {words:["Meldet","euch","sobald","ihr","die","Leiter","erreicht","habt."], gaps:[1]},
+    {words:["Der","Techniker","der","die","Pumpe","geprüft","hat","ist","längst","oben."], gaps:[1,6]}
+  ]},
+  tipps:[
+    "Nebensätze erkennt ihr am Einleitewort (<b>wenn, obwohl, sobald, der/die/das</b>) und daran, dass das Verb am Ende steht.",
+    "Ein <b>eingeschobener</b> Nebensatz braucht zwei Kommas: eines davor, eines danach. Einer der vier Sätze ist so gebaut."
+  ],
+  bonus:{ frage:"Welcher Satz ist richtig?",
+    optionen:["Wir wissen dass der Sturm kommt.","Wir wissen, dass der Sturm kommt.","Wir wissen, dass, der Sturm kommt."],
+    correct:1, erklaerung:"Vor dem Nebensatz mit „dass“ steht genau ein Komma."}
+},
+{
+  id:"leitung", bild:"archiv", nr:4, name:"LEITUNGSNETZ", kz:5,
+  rolle:"Funk liest jeden fertigen Satz laut vor – falsche Wortstellung hört man sofort.",
+  story:"Das Leitungsnetz nimmt Befehle nur als vollständige Sätze an. Die Druckwelle hat die Satzteile durcheinandergewirbelt. Jeder Befehl besteht aus einem Hauptsatz und einem Nebensatz – die Reihenfolge entscheidet, ob das Netz ihn versteht.",
+  auftrag:"Tippt die Bausteine in der richtigen Reihenfolge an. Achtet darauf, wo das Verb im Nebensatz steht – und wo das Komma hingehört.",
+  type:"order",
+  data:{ items:[
+    {art:"Kausalsatz – begründet mit „weil“",
+     loesung:["Wir steigen sofort auf",",","weil","die Sauerstoffreserve","unter 40 Prozent","liegt"],
+     hinweis:"Im weil-Satz steht das Verb ganz am Ende."},
+    {art:"Konditionalsatz – nennt eine Bedingung mit „wenn“",
+     loesung:["Wenn","die Druckregelung","ausfällt",",","ist die Kammer in zwei Stunden unbewohnbar"],
+     hinweis:"Steht der Nebensatz vorn, folgt danach das Komma und dann das Verb des Hauptsatzes."},
+    {art:"Temporalsatz – nennt den Zeitpunkt mit „nachdem“",
+     loesung:["Wir melden uns",",","nachdem","wir","die Luke","geöffnet haben"],
+     hinweis:"Auch hier wandert das Verb des Nebensatzes ans Ende."},
+    {art:"Finalsatz – nennt den Zweck mit „damit“",
+     loesung:["Wir senden den Code",",","damit","sich die Kapsel","löst"],
+     hinweis:"„damit“ leitet einen Nebensatz ein – Verb ans Ende, Komma davor."},
+    {art:"Finalsatz – nennt den Zweck mit „um … zu“",
+     loesung:["Wir öffnen das Ventil",",","um","den Druck","auszugleichen"],
+     hinweis:"Bei „um … zu“ steht das Komma immer. Das ist Pflicht, keine Wahl."}
+  ]},
+  tipps:[
+    "Nebensätze mit <b>weil, wenn, nachdem, damit</b> schieben das Verb ans <b>Satzende</b>. „…, weil die Reserve unter 40 Prozent <b>liegt</b>.“ Nicht: „…, weil die Reserve <b>liegt</b> unter 40 Prozent.“",
+    "Zwischen Hauptsatz und Nebensatz steht <b>immer</b> ein Komma – auch vor „um … zu“. Steht der Nebensatz vorn, kommt nach dem Komma zuerst das <b>Verb</b> des Hauptsatzes: „Wenn die Druckregelung ausfällt, <b>ist</b> die Kammer …“"
+  ],
+  bonus:{ frage:"Welcher Satz ist richtig?",
+    optionen:["Wir tauchen ab um die Sonde zu bergen.",
+      "Wir tauchen ab, um die Sonde zu bergen.",
+      "Wir tauchen ab, um die Sonde bergen zu."],
+    correct:1,
+    erklaerung:"Vor „um … zu“ steht immer ein Komma – anders als bei anderen Infinitivgruppen ist es hier nicht freigestellt. Und „zu“ gehört vor den Infinitiv: <b>zu bergen</b>."}
+},
+{
+  id:"funk", bild:"funk", nr:5, name:"FUNKSPRUCH", kz:9,
+  rolle:"Steuerung tippt nichts, bevor Lektorat die Wirkung des Wortes begründet hat.",
+  story:"Jetzt zählt nicht mehr nur Richtigkeit, sondern Wirkung: Die Bodenstation entscheidet nach eurer Meldung, ob sie den Aufstieg freigibt. Der Textfilter hat die Verbindungswörter gelöscht.",
+  auftrag:"Setzt die passenden Formulierungen ein. Achtet darauf, was der Satz leisten soll.",
+  type:"gaps",
+  data:{ items:[
+    {pre:"In unserer Meldung geht es um die Frage, ob die Bergung sofort starten muss. Ein Argument, das dafür spricht, ist die gesunkene Sauerstoffreserve.",
+     sentence:["[0]"," ist auch die Schleusenpumpe ausgefallen."],
+     options:["Außerdem","Dennoch","Deshalb"], correct:0, funktion:"ein weiteres Argument anreihen"},
+    {sentence:["[0]"," ist, dass der Sturm laut Prognose in sechs Stunden zunimmt."],
+     options:["Ein Beispiel dafür","Besonders wichtig","Weniger wichtig"], correct:1, funktion:"das stärkste Argument hervorheben"},
+    {sentence:["[0]"," kann man einwenden, dass ein Aufstieg bei Sturm riskant ist."],
+     options:["Sicherlich","Deshalb","Außerdem"], correct:0, funktion:"einen Einwand zugestehen"},
+    {sentence:["[0]"," ist das Warten das größere Risiko: Die Reserven sinken schneller, als der Sturm abzieht."],
+     options:["Ebenso","Dennoch","Zum Beispiel"], correct:1, funktion:"den Einwand entkräften"},
+    {sentence:["[0]"," bitten wir um die sofortige Freigabe des Aufstiegs."],
+     options:["Trotzdem","Zum Beispiel","Deshalb"], correct:2, funktion:"eine Schlussfolgerung ziehen"}
+  ]},
+  tipps:[
+    "Fragt euch bei jeder Lücke: <b>anreihen</b> (hinzu kommt, außerdem) – <b>steigern</b> (besonders wichtig) – <b>zugestehen</b> (sicherlich, zwar) – <b>entkräften</b> (dennoch, jedoch) – <b>schlussfolgern</b> (deshalb, daher).",
+    "Zwei Lücken gehören zusammen: erst der Einwand, dann der Widerspruch. „Sicherlich … <b>Dennoch</b> …“"
+  ],
+  bonus:{ frage:"Welche Fassung überzeugt die Bodenstation eher?",
+    optionen:["Es wäre vielleicht irgendwie ganz gut, wenn uns mal jemand bald holen würde.",
+      "Wir bitten um die sofortige Freigabe des Aufstiegs, weil die Sauerstoffreserve unter 40 Prozent liegt."],
+    correct:1, erklaerung:"Füllwörter (vielleicht, irgendwie, mal) schwächen jede Forderung. Konkrete Zahl + klare Bitte wirken."}
+},
+{
+  id:"protokoll", bild:"funk", nr:6, name:"PROTOKOLLFILTER", kz:3,
+  rolle:"Lektorat entscheidet, Steuerung tippt. Wer ein Wort ersetzen will, muss sagen, warum es nicht ins Protokoll gehört.",
+  story:"Jede Meldung wird ins Bordprotokoll übernommen – und das liest später eine Untersuchungskommission. Der Entwurf klingt, als hätte ihn jemand in die Kamera gesprochen. Der Filter weist jedes umgangssprachliche Wort zurück.",
+  auftrag:"Ersetzt die markierten Wörter durch den schriftsprachlichen Ausdruck.",
+  type:"swap",
+  data:{
+    text:["Wir haben um 4:12 Uhr die Meldung ","gekriegt"," und sofort reagiert. Die Lage ist ","voll",
+      " ernst. Wir ","checken"," die Ursache des Ausfalls noch nicht. Das ","Zeug",
+      " im Ostschacht liegt verstreut. Der Dauerton ","nervt"," die Besatzung. Der Ausfall wirkt nicht ","random","."],
+    items:[
+      {alt:"gekriegt", options:["erhalten","gekriegt","mitgekriegt"], correct:0,
+       hilfe:"„kriegen“ ist laut Duden umgangssprachlich."},
+      {alt:"voll", options:["mega","äußerst","echt"], correct:1,
+       hilfe:"„voll“ im Sinne von „sehr“ ist laut Duden salopp."},
+      {alt:"checken", options:["raffen","kennen","peilen"], correct:1,
+       hilfe:"„checken“ im Sinne von „begreifen“ ist laut Duden salopp."},
+      {alt:"Zeug", options:["Kram","Material","Gedöns"], correct:1,
+       hilfe:"„Zeug“ ist laut Duden umgangssprachlich und oft abwertend."},
+      {alt:"nervt", options:["stört","geht auf die Nerven","macht fertig"], correct:0,
+       hilfe:"„nerven“ ist laut Duden umgangssprachlich."},
+      {alt:"random", options:["irgendwie","zufällig","random"], correct:1,
+       hilfe:"„random“ ist laut Duden umgangssprachlich."}
+    ]},
+  tipps:[
+    "Prüft jedes Wort mit der Frage: <b>Würde das so in einer Zeitung stehen?</b> Wenn es nur gesprochen vorkommt, gehört es nicht in einen argumentativen Text.",
+    "Vorsicht bei den Ersatzwörtern: Auch unter den Vorschlägen stehen umgangssprachliche (<b>Kram, raffen, echt, mega, Gedöns</b>). Gesucht ist jeweils das neutrale, schriftsprachliche Wort."
+  ],
+  bonus:{ frage:"In welchem Satz ist „krass“ <b>standardsprachlich</b> – also auch in einer Erörterung erlaubt?",
+    optionen:["Zwischen den beiden Messwerten besteht ein krasser Gegensatz.",
+      "Die neue Bergungskapsel ist echt krass.",
+      "Das Wetter an der Oberfläche ist krass schlecht."],
+    correct:0,
+    erklaerung:"Der Duden führt „krass“ in der Bedeutung „extrem in seiner Art“ <b>ohne</b> Markierung – „ein krasser Gegensatz“ ist korrektes Schriftdeutsch. Nur die Bedeutungen „toll“ und „furchtbar“ sind umgangssprachlich. Ein Wort ist also nicht als Ganzes verboten, sondern in einer bestimmten Bedeutung."}
+},
+{
+  id:"gegen", bild:"bullauge", nr:7, name:"GEGENSPRECHANLAGE", kz:6,
+  rolle:"Alle lesen zuerst alle vier Einwände – erst dann wird zugeordnet.",
+  story:"Die Bodenstation funkt zurück. Vier Einwände, vier vorbereitete Antworten – aber der Filter hat die Zuordnung zerstört.",
+  auftrag:"Tippt einen Einwand an, dann die passende Entkräftung.",
+  type:"match",
+  data:{
+    left:["Ein Aufstieg bei Sturm ist zu gefährlich.",
+      "Die Bergungskapsel ist seit zwei Jahren nicht gewartet.",
+      "Eure Messwerte können auch ein Sensordefekt sein.",
+      "Für einen Nachteinsatz fehlt uns die Genehmigung."],
+    right:["Ein Defekt wäre denkbar. Drei unabhängige Anzeigen zeigen jedoch denselben Wert.",
+      "Sicherlich ist der Sturm ein Risiko. Dennoch nimmt er laut Prognose weiter zu – jede Stunde Warten macht die Bergung gefährlicher.",
+      "Die Genehmigung fehlt tatsächlich. In Notfällen erlaubt Paragraf 7 jedoch den Einsatz ohne Vorabfreigabe.",
+      "Das stimmt für die alte Kapsel. Sie wurde im Mai vollständig ersetzt; die Prüfplakette liegt im Anhang."],
+    map:{0:1,1:3,2:0,3:2}
+  },
+  tipps:[
+    "Jede starke Entkräftung <b>gesteht zuerst etwas zu</b> („Sicherlich …“, „Das stimmt …“, „… wäre denkbar“) und setzt dann dagegen („Dennoch …“, „… jedoch …“).",
+    "Sucht das Schlüsselwort: Sturm ↔ Prognose, Kapsel ↔ Prüfplakette, Messwerte ↔ Anzeigen, Genehmigung ↔ Paragraf."
+  ],
+  bonus:{ frage:"Welche Antwort ist <b>keine</b> echte Entkräftung?",
+    optionen:["Das ist doch Blödsinn – wer so denkt, hat vom Tauchen keine Ahnung.",
+      "Der Einwand ist berechtigt. Trotzdem wiegt die Sauerstofflage schwerer.",
+      "Das stimmt zwar, betrifft aber nur Einsätze über 200 Meter."],
+    correct:0, erklaerung:"Wer den Gegner abwertet, statt sein Argument zu prüfen, entkräftet nichts. Das nennt man eine Killerphrase."}
+}
+];
+
+const FINALE = {
+  kz:[9,2,7,4,6],
+  cards:[
+    {kz:9, rang:1, text:"Wir wollen hier einfach nicht länger unten bleiben."},
+    {kz:2, rang:2, text:"Die Station ist unsicher, weil ständig Systeme ausfallen."},
+    {kz:7, rang:3, text:"Die Station ist unsicher, weil ständig Systeme ausfallen: Heute fielen die Schleusenpumpe und das Notlicht aus."},
+    {kz:4, rang:4, text:"Die Station ist unsicher: Heute fielen Pumpe und Notlicht aus. Fällt auch die Druckregelung aus, ist die Kammer in zwei Stunden unbewohnbar."},
+    {kz:6, rang:5, text:"Die Station ist unsicher: Heute fielen Pumpe und Notlicht aus; fällt die Druckregelung aus, ist die Kammer in zwei Stunden unbewohnbar. Sicherlich ist der Sturm ein Risiko – dennoch wächst er weiter, während unsere Reserven sinken."}
+  ]
+};
+
+const ENDINGS = [
+  {min:0, titel:"NOTAUFSTIEG", text:"Die Kapsel löst sich, kippt, fängt sich. Ihr erreicht die Oberfläche – durchgeschüttelt, aber vollzählig. Abyssos bleibt unten, mit allem, was dort gespeichert war. Zwei Tage später meldet die Bodenstation, dass das Signal aus dem Ostschacht erloschen ist. Niemand weiß, was es war."},
+  {min:3, titel:"KONTROLLIERTER AUFSTIEG", text:"Ihr nehmt die Archivspeicher mit. In der Kapsel, zwischen zwei Druckstufen, liest jemand den letzten Logbucheintrag zu Ende – und schweigt. Die Forschungsdaten sind gerettet. Der Ostschacht bleibt ein offener Fall."},
+  {min:5, titel:"VOLLSTÄNDIGE BERGUNG", text:"Ihr habt genug Zeit für den Umweg über den Ostschacht. Hinter der verklemmten Luke: kein Defekt, kein Tier, sondern die alte Sonde der Stammbesatzung, die seit 41 Tagen gegen die Wand schlägt und dasselbe Signal sendet – drei kurze, drei lange. Ihr nehmt sie mit. Die Auswertung an Land macht euer Team zur Titelmeldung."}
+];
+
+/* ============================ STATE ============================ */
+const KEY="abyssos_v1";
+let S = load() || null;
+
+function load(){ try{ const r=localStorage.getItem(KEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function reset(){ try{ localStorage.removeItem(KEY); }catch(e){} S=null; location.hash=""; render(); }
+
+/* Aktive Systeme: über ?sys=1234567 in der Adresse steuerbar */
+function activeNrs(){
+  let v="";
+  try{ v=new URLSearchParams(location.search).get("sys")||""; }catch(e){}
+  const nrs=String(v).split("").map(Number).filter(n=>MODULES.some(m=>m.nr===n));
+  const uniq=[...new Set(nrs)];
+  return uniq.length?uniq.sort((a,b)=>a-b):MODULES.map(m=>m.nr);
+}
+function MODS(){
+  const nrs=(S&&S.active&&S.active.length)?S.active:activeNrs();
+  return MODULES.filter(m=>nrs.includes(m.nr));
+}
+
+function newGame(team, minuten){
+  S={ team:team||"Team", total:minuten*60, left:minuten*60, ts:Date.now(), active:activeNrs(),
+      screen:"briefing", mi:0, chips:0, solved:[], bonus:[], tipps:{}, fails:{}, work:{}, over:false, ending:null };
+  save();
+}
+
+/* ============================ TIMER ============================ */
+setInterval(()=>{
+  if(!S || S.screen==="start" || S.screen==="briefing" || S.over) return;
+  const now=Date.now(); const d=Math.floor((now-S.ts)/1000);
+  if(d>0){ S.ts=now; S.left=Math.max(0,S.left-d); save(); paintHud(); }
+},1000);
+
+function fmt(s){ const m=Math.floor(s/60), r=s%60; return (m<10?"0":"")+m+":"+(r<10?"0":"")+r; }
+function costTime(sec){ S.left=Math.max(0,S.left-sec); save(); paintHud(); }
+
+function paintHud(){
+  const hud=document.getElementById("hud");
+  if(!S || S.screen==="start" || S.screen==="lehrer"){ hud.style.display="none"; return; }
+  hud.style.display="block";
+  const t=document.getElementById("hTime");
+  t.textContent=fmt(S.left); t.className="val"+(S.left<300?" low":"");
+  document.getElementById("hChips").textContent=S.chips;
+  const d=document.getElementById("hDots");
+  d.innerHTML=MODS().map(m=>'<div class="dot'+(S.solved.includes(m.id)?" on":"")+'"></div>').join("");
+}
+
+/* ============================ HELPERS ============================ */
+function bodyBild(datei){
+  const b=document.body.style;
+  b.backgroundImage = datei
+    ? `linear-gradient(rgba(3,18,26,.80), rgba(3,18,26,.93)), url(img/${datei}.webp)`
+    : "radial-gradient(120% 80% at 50% 0%,#0a3040 0%,#03121a 60%)";
+  b.backgroundSize="cover"; b.backgroundPosition="center";
+  b.backgroundRepeat="no-repeat"; b.backgroundAttachment="scroll";
+}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function say(html,cls){ const el=$("msg"); if(!el) return; el.className="msg "+(cls||"info");
+  el.style.display="block"; el.innerHTML=html; el.classList.add("fade"); }
+function shake(){ const c=$("card"); if(c){ c.classList.remove("shake"); void c.offsetWidth; c.classList.add("shake"); } }
+
+/* ============================ RENDER ============================ */
+function render(){
+  if(location.hash==="#neu"){ reset(); return; }
+  if(location.hash==="#lehrkraft"){ screenLehrer(); return; }
+  if(!S){ screenStart(); return; }
+  paintHud();
+  switch(S.screen){
+    case "briefing": screenBriefing(); break;
+    case "modul": screenModul(); break;
+    case "code": screenCode(); break;
+    case "finale": screenFinale(); break;
+    case "ende": screenEnde(); break;
+    default: screenStart();
+  }
+  window.scrollTo(0,0);
+}
+
+/* ---------- START ---------- */
+function screenStart(){
+  document.getElementById("hud").style.display="none"; bodyBild("bullauge");
+  $("app").innerHTML=`
+  <div class="center" style="padding:22px 0 6px">
+    <div class="tag">Notprotokoll 41</div>
+    <h1 class="mono" style="margin-top:14px">A B Y S S O S</h1>
+    <p class="dim mono">Tiefseestation · 812 m · Sprachfilter aktiv</p>
+  </div>
+  <div class="panel">
+    <div class="hero gross" style="background-image:url(img/schleuse.webp)"></div>
+    <p class="story">Vor vier Stunden ist der Kontakt zur Stammbesatzung abgerissen. Ihr seid das Bergungsteam. Der Aufstieg lässt sich nur freischalten, wenn alle Systeme antworten – und der beschädigte Sprachfilter lässt nur durch, was sauber formuliert ist.</p>
+    <label class="dim mono" style="font-size:.8rem">TEAMNAME</label>
+    <p><input type="text" id="team" maxlength="24" placeholder="z. B. Team Nautilus"></p>
+    <label class="dim mono" style="font-size:.8rem">SPIELZEIT</label>
+    <p class="row" id="zeitRow">
+      <button class="chip sel" data-min="45">45 Min</button>
+      <button class="chip" data-min="50">50 Min</button>
+      <button class="chip" data-min="60">60 Min</button>
+    </p>
+    <p class="row"><button class="btn" id="go">Tauchgang starten</button></p>
+  </div>
+  <p class="center dim mono" style="font-size:.78rem">${activeNrs().length} Systeme aktiv</p>
+  <p class="center dim mono" style="font-size:.78rem">Lehrkraft: <a href="#lehrkraft" style="color:var(--cy2)">Durchführung &amp; Lösungen</a></p>`;
+  let min=45;
+  $("zeitRow").onclick=e=>{ const b=e.target.closest("[data-min]"); if(!b)return;
+    min=+b.dataset.min; [...$("zeitRow").children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel"); };
+  $("go").onclick=()=>{ newGame($("team").value.trim()||"Bergungsteam", min); render(); };
+}
+
+/* ---------- BRIEFING ---------- */
+function screenBriefing(){
+  bodyBild("bullauge");
+  $("app").innerHTML=`
+  <div class="panel">
+    <div class="hero" style="background-image:url(img/funk.webp)"></div>
+    <div class="tag">Einsatzbriefing</div>
+    <h2 style="margin-top:12px">${esc(S.team)}</h2>
+    <p class="story">„Abyssos, hier Bodenstation. Wir haben euch auf dem Schirm. Der Aufstieg ist gesperrt, bis alle Systeme grün melden. Und passt auf, was ihr funkt – der Filter ist seit dem Ausfall empfindlich. Er versteht nur, was richtig geschrieben ist."</p>
+    <hr>
+    <h3>So läuft es</h3>
+    <ul>
+      <li><b>${MODS().length} Systeme</b>, eines nach dem anderen. Jedes gibt eine <span class="kz">Kennzahl</span> frei.</li>
+      <li>Am Ende braucht ihr alle Kennzahlen <b>in der richtigen Reihenfolge</b>.</li>
+      <li><b>Tipps</b> gibt es pro System zwei – jeder kostet 60 Sekunden Reserve.</li>
+      <li>Eine falsche Freigabe kostet 45 Sekunden.</li>
+      <li><b>Datenchips</b> sammelt ihr über freiwillige Zusatzaufgaben. Sie entscheiden, <b>wie</b> euer Tauchgang endet.</li>
+    </ul>
+    <h3>Rollen im Team</h3>
+    <p class="dim" style="font-size:.95rem">Verteilt die vier Rollen – bei drei Personen übernimmt jemand zwei. Nach jedem System wird gewechselt.</p>
+    <p><span class="chip small">Steuerung – bedient das Tablet</span><span class="chip small">Lektorat – prüft vor jeder Freigabe</span><span class="chip small">Funk – liest laut vor</span><span class="chip small">Zeitwache – Reserve &amp; Tipps</span></p>
+    <p class="row"><button class="btn" id="start">Abtauchen</button></p>
+  </div>`;
+  $("start").onclick=()=>{ S.screen="modul"; S.ts=Date.now(); save(); render(); };
+}
+
+/* ---------- MODUL ---------- */
+function screenModul(){
+  // nächstes ungelöstes Modul
+  const AKT=MODS();
+  let i=AKT.findIndex(m=>!S.solved.includes(m.id));
+  if(i<0){ S.screen="finale"; save(); return render(); }
+  S.mi=i; const M=AKT[i]; bodyBild(M.bild);
+  if(!S.work[M.id]) S.work[M.id]=initWork(M);
+  const used=S.tipps[M.id]||0;
+
+  $("app").innerHTML=`
+  <div class="panel fade" id="card">
+    <div class="hero" style="background-image:url(img/${M.bild}.webp)"></div>
+    <div class="row"><span class="tag">System ${i+1}/${AKT.length}</span><span class="tag ghost">${esc(M.name)}</span></div>
+    <p class="story" style="margin-top:14px">${M.story}</p>
+    <p class="dim" style="font-size:.9rem"><b>Rollenhinweis:</b> ${M.rolle}</p>
+    <hr>
+    <p><b>${M.auftrag}</b></p>
+    <div id="body"></div>
+    <div id="msg" class="msg info" style="display:none"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="check">Freigabe senden</button>
+      <button class="btn ghost small" id="tipp">Tipp anfordern (−60 s)${used?" · "+used+"/2":""}</button>
+      <div class="spacer" style="flex:1"></div>
+      ${(S.fails[M.id]||0)>=5?'<button class="btn ghost small" id="skip">Filter überbrücken</button>':''}
+    </div>
+  </div>`;
+  renderBody(M);
+  $("check").onclick=()=>checkModul(M);
+  $("tipp").onclick=()=>{
+    const u=S.tipps[M.id]||0;
+    if(u>=M.tipps.length){ say("Mehr Hinweise hat das System nicht. Nutzt die Überbrückung, wenn ihr feststeckt.","info"); return; }
+    S.tipps[M.id]=u+1; costTime(60); save();
+    say("<b>Hinweis "+(u+1)+":</b> "+M.tipps[u],"info");
+    $("tipp").textContent="Tipp anfordern (−60 s) · "+(u+1)+"/2";
+  };
+  const sk=$("skip"); if(sk) sk.onclick=()=>{ solveModul(M,true); };
+}
+
+function initWork(M){
+  switch(M.type){
+    case "choice": return {ans:M.data.lines.map(()=>null)};
+    case "find": return {sel:[]};
+    case "commas": return {sel:M.data.sentences.map(()=>[])};
+    case "gaps": return {ans:M.data.items.map(()=>null)};
+    case "match": return {pairs:{}, act:null};
+    case "order": return {built:M.data.items.map(()=>[]), pool:M.data.items.map(it=>{
+      const idx=it.loesung.map((x,i)=>i);
+      for(let i=idx.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+      return idx;
+    })};
+    case "swap": return {ans:M.data.items.map(()=>null)};
+  }
+  return {};
+}
+
+function renderBody(M){
+  const W=S.work[M.id], B=$("body");
+  if(M.type==="choice"){
+    B.innerHTML=M.data.lines.map((l,i)=>`
+      <div class="q"><span class="num">FUNKSPRUCH ${i+1}</span><br>
+      ${esc(l.pre)} <span id="sl${i}" class="slot ${W.ans[i]?"":"empty"}">${W.ans[i]||"?"}</span> ${esc(l.post)}<br>
+      ${M.data.options.map(o=>`<button class="chip ${W.ans[i]===o?"sel":""}" data-i="${i}" data-o="${o}">${o}</button>`).join("")}
+      </div>`).join("");
+    B.onclick=e=>{ const b=e.target.closest("[data-o]"); if(!b)return;
+      W.ans[+b.dataset.i]=b.dataset.o; save(); renderBody(M); };
+  }
+  else if(M.type==="find"){
+    B.innerHTML=`<div class="q" style="font-size:1.05rem;line-height:2">`+
+      M.data.tokens.map((t,i)=>`<span class="word click ${W.sel.includes(i)?"sel":""}" data-i="${i}">${esc(t)}</span>`).join(" ")+
+      `</div><p class="dim mono" style="font-size:.85rem">markiert: ${W.sel.length}/5</p>`;
+    B.onclick=e=>{ const w=e.target.closest("[data-i]"); if(!w)return; const i=+w.dataset.i;
+      const p=W.sel.indexOf(i); if(p<0){ if(W.sel.length>=5){ say("Der Speicher nimmt nur fünf Markierungen an. Hebt eine wieder auf.","info"); return; } W.sel.push(i);} else W.sel.splice(p,1);
+      save(); renderBody(M); };
+  }
+  else if(M.type==="commas"){
+    B.innerHTML=M.data.sentences.map((s,si)=>`
+      <div class="q"><span class="num">BEFEHL ${si+1}</span><br>`+
+      s.words.map((w,wi)=>esc(w)+(wi<s.words.length-1?`<span class="gap ${W.sel[si].includes(wi)?"on":""}" data-s="${si}" data-w="${wi}">${W.sel[si].includes(wi)?",":""}</span>`:"")).join(" ")+
+      `</div>`).join("")+
+      `<p class="dim mono" style="font-size:.85rem">gesetzt: ${W.sel.reduce((a,b)=>a+b.length,0)}/5</p>`;
+    B.onclick=e=>{ const g=e.target.closest("[data-w]"); if(!g)return;
+      const si=+g.dataset.s, wi=+g.dataset.w, arr=W.sel[si], p=arr.indexOf(wi);
+      if(p<0) arr.push(wi); else arr.splice(p,1); save(); renderBody(M); };
+  }
+  else if(M.type==="gaps"){
+    B.innerHTML=M.data.items.map((it,i)=>`
+      <div class="q">${it.pre?`<p class="dim" style="font-size:.93rem">${esc(it.pre)}</p>`:""}
+      <p><span class="tag ghost">Aufgabe der Lücke: ${esc(it.funktion)}</span></p>
+      <p style="font-size:1.05rem"><span class="slot ${W.ans[i]===null?"empty":""}">${W.ans[i]!==null?esc(it.options[W.ans[i]]):"?"}</span>${esc(it.sentence[1])}</p>
+      ${it.options.map((o,oi)=>`<button class="chip ${W.ans[i]===oi?"sel":""}" data-i="${i}" data-o="${oi}">${esc(o)}</button>`).join("")}
+      </div>`).join("");
+    B.onclick=e=>{ const b=e.target.closest("[data-o]"); if(!b)return;
+      W.ans[+b.dataset.i]=+b.dataset.o; save(); renderBody(M); };
+  }
+  else if(M.type==="order"){
+    B.innerHTML=M.data.items.map((it,i)=>{
+      const built=W.built[i];
+      const satz=built.length?built.map(k=>esc(it.loesung[k])).join(" ").replace(/ ,/g,",")
+        :'<span class="dim">noch nichts gesetzt</span>';
+      return `<div class="q"><span class="num">BEFEHL ${i+1} · ${esc(it.art)}</span>
+        <p style="font-size:1.05rem;min-height:1.6em">${satz}</p>
+        <div>${W.pool[i].filter(k=>!built.includes(k)).map(k=>
+          `<button class="chip" data-o="${i}" data-k="${k}">${esc(it.loesung[k])}</button>`).join("")}</div>
+        ${built.length?`<p><button class="btn ghost small" data-undo="${i}">Letzten zurück</button></p>`:""}
+      </div>`;}).join("");
+    B.onclick=e=>{
+      const u=e.target.closest("[data-undo]");
+      if(u){ W.built[+u.dataset.undo].pop(); save(); return renderBody(M); }
+      const c=e.target.closest("[data-k]");
+      if(c){ W.built[+c.dataset.o].push(+c.dataset.k); save(); return renderBody(M); }
+    };
+  }
+  else if(M.type==="swap"){
+    const t=M.data.text.map((seg,i)=>{
+      if(i%2===0) return esc(seg);
+      const k=(i-1)/2, a=W.ans[k];
+      return a===null?`<span class="word sel">${esc(seg)}</span>`
+        :`<s class="dim">${esc(seg)}</s> <b style="color:var(--ok)">${esc(M.data.items[k].options[a])}</b>`;
+    }).join("");
+    B.innerHTML=`<div class="q" style="line-height:1.9">${t}</div>`+
+      M.data.items.map((it,k)=>`<div class="q"><span class="num">ERSETZEN ${k+1}</span>
+        <p><span class="word sel">${esc(it.alt)}</span> &nbsp;→&nbsp;
+        <span class="slot ${W.ans[k]===null?"empty":""}">${W.ans[k]!==null?esc(it.options[W.ans[k]]):"?"}</span></p>
+        ${it.options.map((o,oi)=>`<button class="chip ${W.ans[k]===oi?"sel":""}" data-i="${k}" data-o="${oi}">${esc(o)}</button>`).join("")}
+      </div>`).join("");
+    B.onclick=e=>{ const b=e.target.closest("[data-o]"); if(!b)return;
+      W.ans[+b.dataset.i]=+b.dataset.o; save(); renderBody(M); };
+  }
+  else if(M.type==="match"){
+    const taken=Object.values(W.pairs);
+    B.innerHTML=`
+      <p class="dim mono" style="font-size:.82rem">EINWÄNDE DER BODENSTATION</p>
+      ${M.data.left.map((l,i)=>`<div class="card ${W.pairs[i]!==undefined?"used":""} ${W.act===i?"":""}" data-l="${i}"
+        style="${W.act===i?"border-color:var(--cy);box-shadow:0 0 0 2px var(--cy2) inset":""}">
+        <b class="kz">${String.fromCharCode(65+i)}</b> ${esc(l)}</div>`).join("")}
+      <p class="dim mono" style="font-size:.82rem;margin-top:14px">VORBEREITETE ANTWORTEN</p>
+      ${M.data.right.map((r,j)=>`<div class="card ${taken.includes(j)?"used":""}" data-r="${j}"><b class="kz">${j+1}</b> ${esc(r)}</div>`).join("")}
+      <p class="dim mono" style="font-size:.85rem;margin-top:12px">ZUORDNUNG</p>
+      ${Object.keys(W.pairs).length?Object.entries(W.pairs).map(([l,r])=>`<div class="pair"><span class="chip small">${String.fromCharCode(65+ +l)} → ${+r+1}</span><span class="x" data-del="${l}">aufheben ✕</span></div>`).join(""):'<p class="dim">noch keine</p>'}`;
+    B.onclick=e=>{
+      const d=e.target.closest("[data-del]"); if(d){ delete W.pairs[d.dataset.del]; save(); return renderBody(M); }
+      const l=e.target.closest("[data-l]"); if(l){ const i=+l.dataset.l; if(W.pairs[i]!==undefined) delete W.pairs[i]; W.act=(W.act===i?null:i); save(); return renderBody(M); }
+      const r=e.target.closest("[data-r]"); if(r){ const j=+r.dataset.r;
+        if(W.act===null||W.act===undefined){ say("Tippt zuerst einen Einwand an.","info"); return; }
+        if(Object.values(W.pairs).includes(j)){ say("Diese Antwort ist schon vergeben.","info"); return; }
+        W.pairs[W.act]=j; W.act=null; save(); return renderBody(M); }
+    };
+  }
+}
+
+function checkModul(M){
+  const W=S.work[M.id]; let wrong=0, complete=true;
+  if(M.type==="choice"){ M.data.lines.forEach((l,i)=>{ if(W.ans[i]===null) complete=false; else if(W.ans[i]!==l.correct) wrong++; }); }
+  if(M.type==="find"){ if(W.sel.length<5) complete=false; else wrong=W.sel.filter(i=>!M.data.errors.includes(i)).length; }
+  if(M.type==="commas"){ let set=0; M.data.sentences.forEach((s,si)=>{ set+=W.sel[si].length;
+      wrong+=W.sel[si].filter(w=>!s.gaps.includes(w)).length + s.gaps.filter(g=>!W.sel[si].includes(g)).length; });
+    if(set===0) complete=false; }
+  if(M.type==="gaps"){ M.data.items.forEach((it,i)=>{ if(W.ans[i]===null) complete=false; else if(W.ans[i]!==it.correct) wrong++; }); }
+  if(M.type==="order"){ M.data.items.forEach((it,i)=>{
+      const b=W.built[i];
+      if(b.length<it.loesung.length){ complete=false; return; }
+      if(b.some((k,pos)=>k!==pos)) wrong++; }); }
+  if(M.type==="swap"){ M.data.items.forEach((it,i)=>{ if(W.ans[i]===null) complete=false;
+      else if(W.ans[i]!==it.correct) wrong++; }); }
+  if(M.type==="match"){ const n=Object.keys(W.pairs).length; if(n<4) complete=false;
+    Object.entries(W.pairs).forEach(([l,r])=>{ if(M.data.map[l]!==+r) wrong++; }); }
+
+  if(!complete){ say("Der Filter braucht <b>alle</b> Eingaben, bevor er prüft.","info"); shake(); return; }
+  if(wrong===0){ solveModul(M,false); return; }
+  S.fails[M.id]=(S.fails[M.id]||0)+1; costTime(45); save(); shake();
+  let extra="";
+  if(S.fails[M.id]>=3) extra=" <br><b>Notfallhinweis:</b> "+M.tipps[M.tipps.length-1];
+  if(S.fails[M.id]>=5) extra+=" <br>Der Filter lässt sich jetzt <b>überbrücken</b> – ohne Datenchip, aber ihr kommt weiter.";
+  if(S.fails[M.id]===5) screenModul();
+  say(`Zurückgewiesen. <b>${wrong}</b> Stelle${wrong>1?"n":""} hält der Filter für fehlerhaft. (−45 s)`+extra,"bad");
+}
+
+function solveModul(M,skipped){
+  S.solved.push(M.id); save(); bodyBild(M.bild);
+  $("app").innerHTML=`
+  <div class="panel fade" id="card">
+    <div class="hero" style="background-image:url(img/${M.bild}.webp)"></div>
+    <div class="tag">System ${M.nr} ${skipped?"überbrückt":"online"}</div>
+    <h2 style="margin-top:12px">${esc(M.name)} freigegeben</h2>
+    <p>Kennzahl dieses Systems: <span class="kz" style="font-size:2rem">${M.kz}</span></p>
+    <p class="dim">Notiert sie – am Ende zählt die Reihenfolge.</p>
+    <hr>
+    ${skipped?"":`<div class="tag ghost">Freiwillig · 1 Datenchip</div>
+    <p style="margin-top:10px"><b>${M.bonus.frage}</b></p>
+    <div id="bo">${M.bonus.optionen.map((o,i)=>`<button class="chip" data-b="${i}">${esc(o)}</button>`).join("")}</div>`}
+    <div id="msg" class="msg info" style="display:none"></div>
+    <p class="row" style="margin-top:14px"><button class="btn" id="next">Weiter</button></p>
+  </div>`;
+  const bo=$("bo");
+  if(bo) bo.onclick=e=>{ const b=e.target.closest("[data-b]"); if(!b||S.bonus.includes(M.id))return;
+    S.bonus.push(M.id);
+    if(+b.dataset.b===M.bonus.correct){ S.chips++; say("<b>Datenchip gesichert.</b> "+M.bonus.erklaerung,"ok"); }
+    else say("<b>Kein Chip.</b> "+M.bonus.erklaerung,"bad");
+    save(); paintHud(); [...bo.children].forEach(c=>c.disabled=true); };
+  $("next").onclick=()=>{ S.screen=(S.solved.length>=MODS().length)?"code":"modul"; save(); render(); };
+}
+
+/* ---------- KAPSELCODE ---------- */
+function screenCode(){
+  bodyBild("kapsel");
+  const soll=MODS().map(m=>m.kz).join("");
+  $("app").innerHTML=`
+  <div class="panel fade" id="card">
+    <div class="hero" style="background-image:url(img/kapsel.webp)"></div>
+    <div class="row"><span class="tag">Aufstiegskapsel</span><span class="tag ghost">Zugang</span></div>
+    <p class="story" style="margin-top:14px">Alle Systeme melden grün. Die Kapselluke verlangt die Kennzahlen – <b>in der Reihenfolge, in der ihr die Systeme freigeschaltet habt</b>.</p>
+    <p><input type="text" id="cd" inputmode="numeric" maxlength="${soll.length}" placeholder="${soll.length} Ziffern"></p>
+    <div id="msg" class="msg info" style="display:none"></div>
+    <div class="row"><button class="btn" id="ok">Luke öffnen</button>
+    <button class="btn ghost small" id="tipp">Kennzahlen vergessen? (−90 s)</button></div>
+  </div>`;
+  $("ok").onclick=()=>{
+    const v=($("cd").value||"").replace(/\D/g,"");
+    if(v===soll){ S.screen="finale"; save(); render(); }
+    else { costTime(45); shake(); say("Die Luke bleibt zu. (−45 s)","bad"); }
+  };
+  $("tipp").onclick=()=>{ costTime(90); say("Die Kennzahlen lauteten, von System 1 bis 5: <b>"+soll.split("").join(" – ")+"</b>","info"); };
+}
+
+/* ---------- FINALE ---------- */
+function screenFinale(){
+  bodyBild("kapsel");
+  if(!S.work.finale){
+    const idx=FINALE.cards.map((c,i)=>i);
+    for(let i=idx.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+    S.work.finale={order:[], show:idx}; save();
+  }
+  const W=S.work.finale;
+  if(!W.show){ W.show=FINALE.cards.map((c,i)=>i); save(); }
+  const code=W.order.map(i=>FINALE.cards[i].kz).join("");
+  $("app").innerHTML=`
+  <div class="panel fade" id="card">
+    <div class="hero gross" style="background-image:url(img/kapsel.webp)"></div>
+    <div class="row"><span class="tag">Aufstieg</span><span class="tag ghost">Letzte Sperre</span></div>
+    <p class="story" style="margin-top:14px">Alle Systeme melden grün. Die Kapsel verlangt eine letzte Meldung an die Bodenstation: fünf Begründungen für den sofortigen Aufstieg – <b>vom schwächsten zum stärksten</b>. So funkt man, wenn man überzeugen will.</p>
+    <div class="panel quiet">
+      <p class="dim mono" style="font-size:.82rem">SO ERKENNT IHR DIE STÄRKE</p>
+      <p style="font-size:.95rem">bloße Behauptung &nbsp;&lt;&nbsp; + Begründung &nbsp;&lt;&nbsp; + Beleg &nbsp;&lt;&nbsp; + Folge &nbsp;&lt;&nbsp; + entkräfteter Einwand</p>
+    </div>
+    <p><b>Tippt die Begründungen in der richtigen Reihenfolge an.</b></p>
+    ${W.show.map(i=>{const c=FINALE.cards[i];return `<div class="card ${W.order.includes(i)?"used":""}" data-c="${i}">
+      <span class="kz">${W.order.includes(i)?"#"+(W.order.indexOf(i)+1):"·"}</span> ${esc(c.text)}</div>`;}).join("")}
+    <p class="mono" style="font-size:1.1rem;letter-spacing:.25em">REIHENFOLGE: ${code.padEnd(5,"_")}</p>
+    <div id="msg" class="msg info" style="display:none"></div>
+    <div class="row">
+      <button class="btn" id="go">Aufstieg starten</button>
+      <button class="btn ghost small" id="undo">Letzte zurück</button>
+      <button class="btn ghost small" id="tipp">Tipp (−60 s)</button>
+    </div>
+  </div>`;
+  $("app").onclick=e=>{ const c=e.target.closest("[data-c]"); if(!c)return; const i=+c.dataset.c;
+    if(W.order.includes(i))return; W.order.push(i); save(); screenFinale(); };
+  $("undo").onclick=()=>{ W.order.pop(); save(); screenFinale(); };
+  $("tipp").onclick=()=>{ costTime(60);
+    say("Das schwächste Argument ist eine reine Meinung ohne <i>weil</i>. Das stärkste räumt einen Einwand ein und widerlegt ihn.","info"); };
+  $("go").onclick=()=>{
+    if(W.order.length<5){ say("Es fehlen noch Begründungen.","info"); shake(); return; }
+    const ok=W.order.every((c,pos)=>FINALE.cards[c].rang===pos+1);
+    if(ok){ S.over=true; S.screen="ende"; save(); render(); }
+    else { costTime(45); shake(); say("Die Bodenstation antwortet: „Eure Reihenfolge überzeugt nicht. Fangt mit der schwächsten Begründung an.“ (−45 s)","bad"); }
+  };
+}
+
+/* ---------- ENDE ---------- */
+function screenEnde(){
+  bodyBild("kapsel");
+  let tier=0;
+  const n=MODS().length, t1=Math.ceil(n*0.4), t2=Math.ceil(n*0.7);
+  if(S.left>0){ if(S.chips>=t2) tier=2; else if(S.chips>=t1) tier=1; }
+  const E=ENDINGS[tier];
+  $("app").innerHTML=`
+  <div class="panel fade">
+    <div class="hero gross" style="background-image:url(img/kapsel.webp)"></div>
+    <div class="center">
+      <div class="tag">Bergungsprotokoll</div>
+      <h1 class="mono" style="margin-top:14px;font-size:1.5rem">${esc(E.titel)}</h1>
+    </div>
+    <p class="story">${E.text}</p>
+    <hr>
+    <table>
+      <tr><th>Team</th><td>${esc(S.team)}</td></tr>
+      <tr><th>Restreserve</th><td class="mono">${fmt(S.left)}</td></tr>
+      <tr><th>Datenchips</th><td class="mono">${S.chips} / ${MODS().length}</td></tr>
+      <tr><th>Tipps genutzt</th><td class="mono">${Object.values(S.tipps).reduce((a,b)=>a+b,0)}</td></tr>
+    </table>
+    <p class="dim" style="font-size:.9rem">Zeigt diesen Bildschirm der Lehrkraft.</p>
+    <p class="row"><button class="btn ghost small" id="rs">Neuer Durchgang</button></p>
+  </div>`;
+  $("rs").onclick=()=>{ if(confirm("Fortschritt löschen und neu starten?")) reset(); };
+}
+
+/* ---------- LEHRKRAFT ---------- */
+const KURZ={
+  schleuse:"das/dass", archiv:"Groß-/Kleinschreibung", druck:"Komma Haupt-/Nebensatz",
+  leitung:"Nebensatzarten", funk:"Konnektoren", protokoll:"Umgangssprache",
+  gegen:"Einwand entkräften"
+};
+/* geschätzte Minuten je System, für die Dauerangabe */
+const DAUER={ schleuse:7, archiv:7, druck:7, leitung:11, funk:8, protokoll:10, gegen:8 };
+
+function screenLehrer(){
+  document.getElementById("hud").style.display="none"; bodyBild(null);
+  const L=(M)=>{
+    if(M.type==="choice") return M.data.lines.map((l,i)=>(i+1)+": "+l.correct).join(" · ");
+    if(M.type==="find") return M.data.errors.map(i=>M.data.tokens[i]).join(" · ")+" → Merkwürdiges, Öffnen, Klopfen, nichts, Weitere";
+    if(M.type==="commas") return M.data.sentences.map((s,i)=>(i+1)+": nach „"+s.gaps.map(g=>s.words[g]).join("“ und „")+"“").join(" · ");
+    if(M.type==="gaps") return M.data.items.map((it,i)=>(i+1)+": "+it.options[it.correct]).join(" · ");
+    if(M.type==="match") return Object.entries(M.data.map).map(([l,r])=>String.fromCharCode(65+ +l)+"→"+(r+1)).join(" · ");
+    if(M.type==="order") return M.data.items.map((it,i)=>(i+1)+": "+it.loesung.join(" ").replace(/ ,/g,",")).join("<br>");
+    if(M.type==="swap") return M.data.items.map((it,i)=>(i+1)+": "+it.alt+" → "+it.options[it.correct]).join(" · ");
+  };
+  $("app").innerHTML=`
+  <div class="panel lehrer">
+    <div class="tag">Nur für die Lehrkraft</div>
+    <h2 style="margin-top:12px">ABYSSOS – Durchführung</h2>
+    <p><b>Format:</b> digitaler Breakout, Teams à 3–4, ein Tablet pro Team. Kein Login, keine Kopien, keine Internetverbindung nötig (nach dem Laden). Die Dauer hängt davon ab, wie viele Systeme ihr unten auswählt: etwa 35 Minuten bei vier, etwa 65 bei allen sieben.</p>
+    <h3>Systeme auswählen</h3>
+    <p class="dim" style="font-size:.95rem">Wählt hier aus, welche Systeme laufen sollen. Daraus entsteht unten ein Link – <b>gebt der Klasse genau diesen Link</b>, damit alle Teams dieselbe Auswahl haben. Ohne Auswahl laufen alle Systeme.</p>
+    <div id="pick">${MODULES.map(M=>`<label class="card" style="display:block;cursor:pointer">
+      <input type="checkbox" data-nr="${M.nr}" checked style="width:20px;height:20px;vertical-align:-4px;margin-right:8px">
+      <b>${M.nr} ${esc(M.name)}</b> · <span class="dim">${esc(KURZ[M.id])}</span> · Kennzahl <span class="kz">${M.kz}</span>
+    </label>`).join("")}</div>
+    <div class="panel quiet">
+      <p class="dim mono" style="font-size:.82rem">LINK FÜR DIE KLASSE</p>
+      <p class="mono" id="lnk" style="word-break:break-all;font-size:.9rem"></p>
+      <p>Dauer etwa <b id="dauer"></b> · Kapselcode <span class="kz" id="kcode"></span></p>
+      <p class="row"><button class="btn small" id="copy">Link kopieren</button>
+      <button class="btn ghost small" id="test">Auswahl ausprobieren</button></p>
+    </div>
+    <h3>Ablauf</h3>
+    <ul>
+      <li><b>5 Min.</b> Teams bilden, Rollen verteilen (Steuerung / Lektorat / Funk / Zeitwache), Link öffnen, Teamname eingeben.</li>
+      <li><b>Hauptteil</b> Die ausgewählten Systeme laufen nacheinander, dann die Kapselluke (Kennzahlen eingeben), dann das Finale. Das Finale läuft immer mit, unabhängig von der Auswahl.</li>
+      <li><b>5 Min.</b> Endbildschirme vergleichen: Restzeit, Datenchips, Ende.</li>
+    </ul>
+    <p><b>Wettbewerb:</b> Rangfolge über Restreserve, Gleichstand über Datenchips.</p>
+    <p><b>Drei Hilfen – gezählt werden falsche Freigaben, nicht Tipps:</b></p>
+    <table>
+      <tr><th>Hilfe</th><th>Auslöser</th><th>Wirkung</th></tr>
+      <tr><td>Tipp</td><td>Team fordert selbst an, max. 2 pro System</td><td>−60 s Reserve</td></tr>
+      <tr><td>Notfallhinweis</td><td>automatisch ab der 3. falschen Freigabe</td><td>stärkster Hinweis erscheint kostenlos</td></tr>
+      <tr><td>Überbrückung</td><td>ab der 5. falschen Freigabe</td><td>System gilt als gelöst, Kennzahl wird ausgegeben, aber keine Bonusfrage und damit kein Datenchip</td></tr>
+      <tr><td colspan="3" class="dim">Jede falsche Freigabe kostet 45 s. Bis zur Überbrückung sind das 3:45 Minuten plus ein verlorener Chip – absichtliches Durchfallen lohnt sich nicht.</td></tr>
+    </table>
+    <p>So bleibt kein Team stecken; wer viel Hilfe braucht, zahlt mit Reserve und Chips – also mit dem Ende, nicht mit dem Weiterkommen.</p>
+    <p><b>Alternative Enden</b> (Differenzierung über das Tempo, nicht über das Niveau): Die Schwellen richten sich nach der Zahl der aktiven Systeme – ab 40 Prozent der möglichen Datenchips der kontrollierte Aufstieg, ab 70 Prozent die vollständige Bergung. Bei sieben Systemen also 3 bzw. 5 Chips. Bei abgelaufener Reserve immer Notaufstieg.</p>
+    <hr>
+    <h3>Lösungen</h3>
+    <table>
+      <tr><th>System</th><th>Schwerpunkt</th><th>Lösung</th><th>Kennzahl</th></tr>
+      ${MODULES.map(M=>`<tr><td>${M.nr} ${esc(M.name)}</td><td>${{
+        schleuse:"das/dass – syntaktische Strategie",archiv:"Groß-/Kleinschreibung, Nominalisierung",
+        druck:"Komma bei Haupt- und Nebensatz",
+        leitung:"Nebensatzarten: Verbstellung und Komma (kausal, konditional, temporal, final inkl. „um … zu“)",
+        funk:"Konnektoren, Formulierungshilfen",
+        protokoll:"Umgangssprache erkennen und schriftsprachlich ersetzen (Duden-geprüft)",
+        gegen:"Einwand zugestehen und entkräften"}[M.id]}</td><td class="mono" style="font-size:.85rem">${L(M)}</td><td class="kz">${M.kz}</td></tr>`).join("")}
+      <tr><td>Kapselluke</td><td>Kennzahlen der aktiven Systeme</td><td class="mono">in der Reihenfolge der Freischaltung eingeben; bei allen sieben Systemen lautet er:</td><td class="kz">${MODULES.map(m=>m.kz).join("")}</td></tr>
+      <tr><td>Finale</td><td>Argumentstärke, Steigerungsprinzip</td><td class="mono">Behauptung → Begründung → Beleg → Folge → entkräfteter Einwand (Karten erscheinen gemischt)</td><td class="kz">–</td></tr>
+    </table>
+    <p><b>Bonusaufgaben:</b> 1 das (Relativsatz nach „alles“) · 2 „im Dunkeln“ · 3 „Wir wissen, dass der Sturm kommt.“ · 4 die konkrete Fassung · 5 die Killerphrase.</p>
+    <hr>
+    <h3>Hinweise</h3>
+    <ul>
+      <li>Es wird <b>keine Streitfrage verbraucht</b>: Argumentiert wird ausschließlich über die Spielhandlung (sofortiger Aufstieg).</li>
+      <li>Das Finale wiederholt genau das Kriterium der linearen Erörterung: Behauptung &lt; Begründung &lt; Beleg &lt; Folge &lt; entkräfteter Einwand.</li>
+      <li>Der Fortschritt liegt im Browser des Tablets. Seite neu laden ist unkritisch, Tab schließen ebenfalls – Achtung nur bei privatem Modus. Genau deshalb startet ein erneutes Öffnen im alten Spielstand.</li>
+      <li><b>Neu starten:</b> Knopf „Abbruch“ oben rechts in der Statusleiste (mit Rückfrage). Falls ein Gerät hängt, führt auch <span class="mono">#neu</span> am Ende der Adresse direkt zum Startbildschirm.</li>
+      <li>Nachbereitung in einem Satz: „Welche Formulierung aus dem Funkspruch nehmt ihr in eure nächste Erörterung mit?“</li>
+    </ul>
+    <p class="row"><button class="btn ghost small" onclick="location.hash='';render()">Zurück</button>
+    <button class="btn ghost small" onclick="window.print()">Drucken</button>
+    <button class="btn ghost small" onclick="if(confirm('Gespeicherten Spielstand auf diesem Gerät löschen?'))reset()">Spielstand löschen</button></p>
+  </div>`;
+
+  /* Auswahl, Link und Dauer live berechnen */
+  const basis=location.href.split("?")[0].split("#")[0];
+  const gewaehlt=()=>[...document.querySelectorAll("#pick input:checked")].map(c=>+c.dataset.nr);
+  function aktualisiere(){
+    const nrs=gewaehlt();
+    const mods=MODULES.filter(m=>nrs.includes(m.nr));
+    const alle=nrs.length===MODULES.length;
+    const url=basis+(alle?"":"?sys="+nrs.join(""));
+    $("lnk").textContent=nrs.length?url:"(mindestens ein System auswählen)";
+    const min=mods.reduce((a,m)=>a+DAUER[m.id],0)+8;
+    $("dauer").textContent=nrs.length?(min-5)+"–"+(min+5)+" Minuten":"–";
+    $("kcode").textContent=mods.map(m=>m.kz).join("")||"–";
+    $("copy").disabled=$("test").disabled=!nrs.length;
+  }
+  $("pick").onchange=aktualisiere;
+  $("copy").onclick=()=>{
+    const t=$("lnk").textContent;
+    navigator.clipboard?.writeText(t).then(
+      ()=>{ $("copy").textContent="Kopiert"; setTimeout(()=>$("copy").textContent="Link kopieren",1500); },
+      ()=>{ prompt("Link zum Kopieren:", t); });
+  };
+  $("test").onclick=()=>{
+    const nrs=gewaehlt();
+    try{ localStorage.removeItem(KEY); }catch(e){}
+    location.href=basis+(nrs.length===MODULES.length?"":"?sys="+nrs.join(""));
+  };
+  aktualisiere();
+}
+
+document.getElementById("hReset").onclick=()=>{
+  if(confirm("Laufendes Spiel abbrechen?\n\nDer gesamte Fortschritt dieses Teams geht verloren und ihr landet wieder beim Startbildschirm.")) reset();
+};
+window.addEventListener("hashchange",render);
+render();
+</script>
+</body>
+</html>
